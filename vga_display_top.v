@@ -2,12 +2,13 @@
 
 module vga_display_top(
     input wire clk,              // 100MHz system clock
-    input wire reset,
+    input wire reset,            // SW15 - rightmost switch
     input wire btn_up,           // Button for menu navigation up
     input wire btn_down,         // Button for menu navigation down
     input wire btn_left,         // Button for decrease value
     input wire btn_right,        // Button for increase value
     input wire btn_center,       // Button for enter/select
+    input wire [14:0] switches,  // Switches SW0-SW14 for traffic light control
     output wire hsync,
     output wire vsync,
     output wire [3:0] vga_r,
@@ -74,6 +75,46 @@ module vga_display_top(
     );
 
     // ========================================================================
+    // TRAFFIC LIGHT CONTROL
+    // ========================================================================
+    wire N_red, N_yellow, N_green;
+    wire E_red, E_yellow, E_green;
+    wire S_red, S_yellow, S_green;
+    wire W_red, W_yellow, W_green;
+    wire [7:0] countdown_sec;
+    wire [1:0] active_direction;
+
+    // SW15 is used for reset, so tie switches[15] to reset value
+    wire [15:0] switches_internal;
+    assign switches_internal = {reset, switches[14:0]};
+
+    // Decode mode from switches
+    wire mode_auto = ~switches[0];  // 0=auto, 1=manual
+
+    traffic_light_control tl_ctrl(
+        .clk(clk),
+        .rst(reset),
+        .switches(switches_internal),
+        .green_duration(green_duration),
+        .yellow_duration(yellow_duration),
+        .red_holding(red_holding),
+        .N_red(N_red),
+        .N_yellow(N_yellow),
+        .N_green(N_green),
+        .E_red(E_red),
+        .E_yellow(E_yellow),
+        .E_green(E_green),
+        .S_red(S_red),
+        .S_yellow(S_yellow),
+        .S_green(S_green),
+        .W_red(W_red),
+        .W_yellow(W_yellow),
+        .W_green(W_green),
+        .countdown_sec(countdown_sec),
+        .active_direction(active_direction)
+    );
+
+    // ========================================================================
     // FONT ROM
     // ========================================================================
     wire [5:0] char_code;
@@ -100,6 +141,9 @@ module vga_display_top(
         .green_duration(green_duration),
         .yellow_duration(yellow_duration),
         .red_holding(red_holding),
+        .countdown_sec(countdown_sec),
+        .active_direction(active_direction),
+        .mode_auto(mode_auto),
         .font_pixels(font_pixels),
         .text_pixel(text_pixel),
         .char_code(char_code),
@@ -115,6 +159,18 @@ module vga_display_top(
     traffic_light_shapes shapes(
         .x(x),
         .y(y),
+        .N_red(N_red),
+        .N_yellow(N_yellow),
+        .N_green(N_green),
+        .E_red(E_red),
+        .E_yellow(E_yellow),
+        .E_green(E_green),
+        .S_red(S_red),
+        .S_yellow(S_yellow),
+        .S_green(S_green),
+        .W_red(W_red),
+        .W_yellow(W_yellow),
+        .W_green(W_green),
         .shape_active(shape_active),
         .shape_r(shape_r),
         .shape_g(shape_g),

@@ -8,6 +8,9 @@ module text_renderer(
     input wire [7:0] green_duration,
     input wire [7:0] yellow_duration,
     input wire [7:0] red_holding,
+    input wire [7:0] countdown_sec,
+    input wire [1:0] active_direction,  // 00=N, 01=E, 10=S, 11=W
+    input wire mode_auto,               // 1=auto mode, 0=manual mode
     input wire [7:0] font_pixels,
     output wire text_pixel,
     output wire [5:0] char_code,
@@ -309,24 +312,105 @@ module text_renderer(
     end
 
     // ========================================================================
+    // COUNTDOWN TIMER DISPLAY AT 4 POSITIONS
+    // CHECK LOGIC - Countdown display positions for each direction
+    // ========================================================================
+    // Countdown positions for each direction (modify these to move countdown display)
+    parameter COUNTDOWN_N_X = 165;  // North countdown X position
+    parameter COUNTDOWN_N_Y = 70;   // North countdown Y position
+
+    parameter COUNTDOWN_E_X = 220;  // East countdown X position
+    parameter COUNTDOWN_E_Y = 165;  // East countdown Y position
+
+    parameter COUNTDOWN_S_X = 125;  // South countdown X position
+    parameter COUNTDOWN_S_Y = 220;  // South countdown Y position
+
+    parameter COUNTDOWN_W_X = 70;   // West countdown X position
+    parameter COUNTDOWN_W_Y = 125;  // West countdown Y position
+
+    parameter COUNTDOWN_MAX_CHARS = 3;  // 2-3 digits for countdown
+
+    // Determine which countdown region we're in based on active direction
+    reg [9:0] countdown_x, countdown_y;
+    always @(*) begin
+        case (active_direction)
+            2'b00: begin  // North
+                countdown_x = COUNTDOWN_N_X;
+                countdown_y = COUNTDOWN_N_Y;
+            end
+            2'b01: begin  // East
+                countdown_x = COUNTDOWN_E_X;
+                countdown_y = COUNTDOWN_E_Y;
+            end
+            2'b10: begin  // South
+                countdown_x = COUNTDOWN_S_X;
+                countdown_y = COUNTDOWN_S_Y;
+            end
+            2'b11: begin  // West
+                countdown_x = COUNTDOWN_W_X;
+                countdown_y = COUNTDOWN_W_Y;
+            end
+        endcase
+    end
+
+    wire in_countdown_region;
+    wire [5:0] countdown_char_pos;
+    wire [2:0] countdown_pixel_col;
+    wire [2:0] countdown_char_row;
+
+    assign in_countdown_region = (x >= countdown_x) &&
+                                (x < countdown_x + COUNTDOWN_MAX_CHARS * CHAR_WIDTH) &&
+                                (y >= countdown_y) &&
+                                (y < countdown_y + CHAR_HEIGHT);
+
+    assign countdown_char_pos = in_countdown_region ? ((x - countdown_x) / CHAR_WIDTH) : 6'd0;
+    assign countdown_pixel_col = in_countdown_region ? ((x - countdown_x) % CHAR_WIDTH) : 3'd0;
+    assign countdown_char_row = in_countdown_region ? (y - countdown_y) : 3'd0;
+
+    // Extract countdown digits (up to 2 digits for display)
+    wire [3:0] countdown_tens = (countdown_sec % 100) / 10;
+    wire [3:0] countdown_ones = countdown_sec % 10;
+
+    // CHECK LOGIC - Countdown display behavior (auto vs manual mode)
+    // Countdown character lookup
+    reg [5:0] countdown_char_code;
+    always @(*) begin
+        countdown_char_code = 6'd0;
+        // Only show countdown in automatic mode
+        if (!mode_auto) begin
+            countdown_char_code = 6'd0;  // Manual mode - show nothing
+        end else begin
+            // Automatic mode - show countdown including 0
+            case (countdown_char_pos)
+                6'd0:  countdown_char_code = (countdown_sec >= 10) ? digit_to_char(countdown_tens) : 6'd0;
+                6'd1:  countdown_char_code = digit_to_char(countdown_ones);
+                default: countdown_char_code = 6'd0;
+            endcase
+        end
+    end
+
+    // ========================================================================
     // OUTPUT MULTIPLEXING
     // ========================================================================
     wire [5:0] final_char_code;
     wire [2:0] final_char_row;
 
-    assign final_char_code = in_menu_region ? menu_char_code :
-                            (in_text_region ? text_char_code : 6'd0);
-    assign final_char_row = in_menu_region ? menu_char_row :
-                           (in_text_region ? text_char_row : 3'd0);
+    assign final_char_code = in_countdown_region ? countdown_char_code :
+                            (in_menu_region ? menu_char_code :
+                            (in_text_region ? text_char_code : 6'd0));
+    assign final_char_row = in_countdown_region ? countdown_char_row :
+                           (in_menu_region ? menu_char_row :
+                           (in_text_region ? text_char_row : 3'd0));
 
     assign char_code = final_char_code;
     assign char_row = final_char_row;
 
     // Generate text pixel output from font ROM
     // Use the appropriate pixel column based on which region we're in
-    wire [2:0] active_pixel_col = in_menu_region ? menu_pixel_col : pixel_col;
+    wire [2:0] active_pixel_col = in_countdown_region ? countdown_pixel_col :
+                                 (in_menu_region ? menu_pixel_col : pixel_col);
     wire font_pixel = (active_pixel_col < 8) ? font_pixels[7 - active_pixel_col] : 1'b0;
 
-    assign text_pixel = (in_text_region || in_menu_region) && font_pixel;
+    assign text_pixel = (in_text_region || in_menu_region || in_countdown_region) && font_pixel;
 
 endmodule
