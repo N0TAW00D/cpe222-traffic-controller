@@ -443,7 +443,31 @@ module font_rom(
                 3'd6: pixels = 8'b00111100;
                 3'd7: pixels = 8'b00000000;
             endcase
-            
+
+            // > (37)
+            6'd37: case (row)
+                3'd0: pixels = 8'b00000000;
+                3'd1: pixels = 8'b01000000;
+                3'd2: pixels = 8'b00100000;
+                3'd3: pixels = 8'b00010000;
+                3'd4: pixels = 8'b00100000;
+                3'd5: pixels = 8'b01000000;
+                3'd6: pixels = 8'b00000000;
+                3'd7: pixels = 8'b00000000;
+            endcase
+
+            // : (38)
+            6'd38: case (row)
+                3'd0: pixels = 8'b00000000;
+                3'd1: pixels = 8'b00000000;
+                3'd2: pixels = 8'b00011000;
+                3'd3: pixels = 8'b00000000;
+                3'd4: pixels = 8'b00000000;
+                3'd5: pixels = 8'b00011000;
+                3'd6: pixels = 8'b00000000;
+                3'd7: pixels = 8'b00000000;
+            endcase
+
             default: pixels = 8'b00000000;
         endcase
     end
