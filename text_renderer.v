@@ -323,10 +323,10 @@ module text_renderer(
     assign char_row = final_char_row;
 
     // Generate text pixel output from font ROM
-    wire title_pixel = (pixel_col < 8) ? font_pixels[7 - pixel_col] : 1'b0;
-    wire menu_pixel = (menu_pixel_col < 8) ? font_pixels[7 - menu_pixel_col] : 1'b0;
+    // Use the appropriate pixel column based on which region we're in
+    wire [2:0] active_pixel_col = in_menu_region ? menu_pixel_col : pixel_col;
+    wire font_pixel = (active_pixel_col < 8) ? font_pixels[7 - active_pixel_col] : 1'b0;
 
-    assign text_pixel = (in_text_region && title_pixel) ||
-                       (in_menu_region && menu_pixel);
+    assign text_pixel = (in_text_region || in_menu_region) && font_pixel;
 
 endmodule
