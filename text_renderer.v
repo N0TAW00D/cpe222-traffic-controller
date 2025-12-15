@@ -10,8 +10,7 @@ module text_renderer(
     input wire [7:0] red_holding,
     input wire [7:0] countdown_sec,
     input wire [1:0] active_direction,  // 00=N, 01=E, 10=S, 11=W
-    input wire mode_auto,               // 1=auto mode, 0=manual mode
-    input wire manual_yellow_active,    // 1=manual yellow transition active
+    input wire show_countdown,          // 1=show countdown, 0=hide
     input wire [7:0] font_pixels,
     output wire text_pixel,
     output wire [5:0] char_code,
@@ -315,21 +314,20 @@ module text_renderer(
     wire [3:0] countdown_tens = (countdown_sec % 100) / 10;
     wire [3:0] countdown_ones = countdown_sec % 10;
 
-    // CHECK LOGIC - Countdown display behavior (auto vs manual mode)
-    // Countdown character lookup
+    // Countdown character lookup - show/hide based on show_countdown signal
     reg [5:0] countdown_char_code;
     always @(*) begin
         countdown_char_code = 6'd0;
-        // Only show countdown in automatic mode
-        if (!mode_auto) begin
-            countdown_char_code = 6'd0;  // Manual mode - show nothing
-        end else begin
-            // Automatic mode - show countdown including 0
+        if (show_countdown) begin
+            // Show countdown numbers
             case (countdown_char_pos)
                 6'd0:  countdown_char_code = (countdown_sec >= 10) ? digit_to_char(countdown_tens) : 6'd0;
                 6'd1:  countdown_char_code = digit_to_char(countdown_ones);
                 default: countdown_char_code = 6'd0;
             endcase
+        end else begin
+            // Hide countdown - show nothing (space)
+            countdown_char_code = 6'd0;
         end
     end
 

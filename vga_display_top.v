@@ -91,6 +91,7 @@ module vga_display_top(
     // Decode mode from switches
     wire mode_auto = ~switches[0];  // 0=auto, 1=manual
     wire manual_yellow_transition;
+    wire show_countdown;
 
     traffic_light_control tl_ctrl(
         .clk(clk),
@@ -113,7 +114,8 @@ module vga_display_top(
         .W_green(W_green),
         .countdown_sec(countdown_sec),
         .active_direction(active_direction),
-        .manual_yellow_transition(manual_yellow_transition)
+        .manual_yellow_transition(manual_yellow_transition),
+        .show_countdown(show_countdown)
     );
 
     // ========================================================================
@@ -145,7 +147,7 @@ module vga_display_top(
         .red_holding(red_holding),
         .countdown_sec(countdown_sec),
         .active_direction(active_direction),
-        .mode_auto(mode_auto),
+        .show_countdown(show_countdown),
         .font_pixels(font_pixels),
         .text_pixel(text_pixel),
         .char_code(char_code),
