@@ -29,15 +29,13 @@ module text_renderer(
     parameter MENU_X = 300;
     parameter MENU_Y = 50;
     parameter MENU_MAX_CHARS = 30;
-    parameter MENU_NUM_LINES = 9;
+    parameter MENU_NUM_LINES = 5;
 
     // Menu item indices
     parameter MENU_GREEN_DUR = 4'd1;
     parameter MENU_YELLOW_DUR = 4'd2;
     parameter MENU_RED_HOLD = 4'd3;
-    parameter MENU_PLAY = 4'd6;
-    parameter MENU_PAUSE = 4'd7;
-    parameter MENU_STOP = 4'd8;
+    // (Removed Play/Pause/Stop menu items)
 
     // ========================================================================
     // TITLE TEXT RENDERING
@@ -250,62 +248,7 @@ module text_renderer(
             // Line 4: Blank
             4'd4: menu_char_code = 6'd0;
 
-            // Line 5: "Simulation"
-            4'd5: begin
-                case (menu_char_pos)
-                    6'd0:  menu_char_code = 6'd19; // S
-                    6'd1:  menu_char_code = 6'd9;  // I
-                    6'd2:  menu_char_code = 6'd13; // M
-                    6'd3:  menu_char_code = 6'd21; // U
-                    6'd4:  menu_char_code = 6'd12; // L
-                    6'd5:  menu_char_code = 6'd1;  // A
-                    6'd6:  menu_char_code = 6'd20; // T
-                    6'd7:  menu_char_code = 6'd9;  // I
-                    6'd8:  menu_char_code = 6'd15; // O
-                    6'd9:  menu_char_code = 6'd14; // N
-                    default: menu_char_code = 6'd0;
-                endcase
-            end
-
-            // Line 6: "Play"
-            4'd6: begin
-                case (menu_char_pos)
-                    6'd0:  menu_char_code = (menu_sel == MENU_PLAY) ? 6'd37 : 6'd0;
-                    6'd1:  menu_char_code = 6'd0;
-                    6'd2:  menu_char_code = 6'd16; // P
-                    6'd3:  menu_char_code = 6'd12; // L
-                    6'd4:  menu_char_code = 6'd1;  // A
-                    6'd5:  menu_char_code = 6'd25; // Y
-                    default: menu_char_code = 6'd0;
-                endcase
-            end
-
-            // Line 7: "Pause"
-            4'd7: begin
-                case (menu_char_pos)
-                    6'd0:  menu_char_code = (menu_sel == MENU_PAUSE) ? 6'd37 : 6'd0;
-                    6'd1:  menu_char_code = 6'd0;
-                    6'd2:  menu_char_code = 6'd16; // P
-                    6'd3:  menu_char_code = 6'd1;  // A
-                    6'd4:  menu_char_code = 6'd21; // U
-                    6'd5:  menu_char_code = 6'd19; // S
-                    6'd6:  menu_char_code = 6'd5;  // E
-                    default: menu_char_code = 6'd0;
-                endcase
-            end
-
-            // Line 8: "Stop"
-            4'd8: begin
-                case (menu_char_pos)
-                    6'd0:  menu_char_code = (menu_sel == MENU_STOP) ? 6'd37 : 6'd0;
-                    6'd1:  menu_char_code = 6'd0;
-                    6'd2:  menu_char_code = 6'd19; // S
-                    6'd3:  menu_char_code = 6'd20; // T
-                    6'd4:  menu_char_code = 6'd15; // O
-                    6'd5:  menu_char_code = 6'd16; // P
-                    default: menu_char_code = 6'd0;
-                endcase
-            end
+            // (Removed Simulation / Play / Pause / Stop menu lines)
 
             default: menu_char_code = 6'd0;
         endcase
@@ -320,13 +263,13 @@ module text_renderer(
     parameter COUNTDOWN_N_Y = 70;   // North countdown Y position
 
     parameter COUNTDOWN_E_X = 220;  // East countdown X position
-    parameter COUNTDOWN_E_Y = 165;  // East countdown Y position
+    parameter COUNTDOWN_E_Y = 170;  // East countdown Y position
 
     parameter COUNTDOWN_S_X = 125;  // South countdown X position
     parameter COUNTDOWN_S_Y = 220;  // South countdown Y position
 
     parameter COUNTDOWN_W_X = 70;   // West countdown X position
-    parameter COUNTDOWN_W_Y = 125;  // West countdown Y position
+    parameter COUNTDOWN_W_Y = 130;  // West countdown Y position
 
     parameter COUNTDOWN_MAX_CHARS = 3;  // 2-3 digits for countdown
 
