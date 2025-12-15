@@ -71,8 +71,8 @@ module traffic_light_shapes(
 
     // =======================================================================
     // Colored squares
-    assign blue_square = (x >= 50) && (x < 130) && (y >= 350) && (y < 430);
-    assign yellow_square = (x >= 500) && (x < 580) && (y >= 350) && (y < 430);
+    assign blue_square = (x >= 50) && (x < 50) && (y >= 350) && (y < 350);
+    assign yellow_square = (x >= 500) && (x < 500) && (y >= 350) && (y < 350);
 
     // =======================================================================
     // SMALL SQUARES AS TRAFFIC LIGHTS
