@@ -5,13 +5,17 @@ module text_renderer(
     input wire [9:0] x,
     input wire [9:0] y,
     input wire [3:0] menu_sel,
-    input wire [7:0] green_duration,
+    input wire [7:0] n_duration,
+    input wire [7:0] s_duration,
+    input wire [7:0] w_duration,
+    input wire [7:0] e_duration,
     input wire [7:0] yellow_duration,
     input wire [7:0] red_holding,
     input wire [7:0] countdown_sec,
     input wire [1:0] active_direction,  // 00=N, 01=E, 10=S, 11=W
     input wire show_countdown,          // 1=show countdown, 0=hide
     input wire [7:0] font_pixels,
+    input wire [7:0] yellow_light_count, // New input for yellow light count
     output wire text_pixel,
     output wire [5:0] char_code,
     output wire [2:0] char_row
@@ -29,12 +33,16 @@ module text_renderer(
     parameter MENU_X = 300;
     parameter MENU_Y = 50;
     parameter MENU_MAX_CHARS = 30;
-    parameter MENU_NUM_LINES = 5;
+    parameter MENU_NUM_LINES = 8; // Increased to accommodate new line
 
     // Menu item indices
-    parameter MENU_GREEN_DUR = 4'd1;
-    parameter MENU_YELLOW_DUR = 4'd2;
-    parameter MENU_RED_HOLD = 4'd3;
+    parameter MENU_N_DUR = 4'd1;
+    parameter MENU_S_DUR = 4'd2;
+    parameter MENU_W_DUR = 4'd3;
+    parameter MENU_E_DUR = 4'd4;
+    parameter MENU_YELLOW_DUR = 4'd5;
+    parameter MENU_RED_HOLD = 4'd6;
+    parameter MENU_YELLOW_COUNT = 4'd7; // New menu item for yellow count
     // (Removed Play/Pause/Stop menu items)
 
     // ========================================================================
@@ -119,12 +127,21 @@ module text_renderer(
     endfunction
 
     // Extract digits
-    wire [3:0] green_tens = green_duration / 10;
-    wire [3:0] green_ones = green_duration % 10;
+    wire [3:0] n_tens = n_duration / 10;
+    wire [3:0] n_ones = n_duration % 10;
+    wire [3:0] s_tens = s_duration / 10;
+    wire [3:0] s_ones = s_duration % 10;
+    wire [3:0] w_tens = w_duration / 10;
+    wire [3:0] w_ones = w_duration % 10;
+    wire [3:0] e_tens = e_duration / 10;
+    wire [3:0] e_ones = e_duration % 10;
     wire [3:0] yellow_tens = yellow_duration / 10;
     wire [3:0] yellow_ones = yellow_duration % 10;
     wire [3:0] red_tens = red_holding / 10;
     wire [3:0] red_ones = red_holding % 10;
+    wire [3:0] yellow_count_tens = yellow_light_count / 10; // Extract for new counter
+    wire [3:0] yellow_count_ones = yellow_light_count % 10; // Extract for new counter
+
 
     // Menu character lookup
     reg [5:0] menu_char_code;
@@ -146,17 +163,11 @@ module text_renderer(
                 endcase
             end
 
-            // Line 1: "Green duration"
+            // Line 1: "N duration"
             4'd1: begin
                 case (menu_char_pos)
-                    6'd0:  menu_char_code = (menu_sel == MENU_GREEN_DUR) ? 6'd37 : 6'd0;
-                    6'd1:  menu_char_code = 6'd0;
-                    6'd2:  menu_char_code = 6'd7;  // G
-                    6'd3:  menu_char_code = 6'd18; // R
-                    6'd4:  menu_char_code = 6'd5;  // E
-                    6'd5:  menu_char_code = 6'd5;  // E
-                    6'd6:  menu_char_code = 6'd14; // N
-                    6'd7:  menu_char_code = 6'd0;
+                    6'd0:  menu_char_code = (menu_sel == MENU_N_DUR) ? 6'd37 : 6'd0;
+                    6'd2:  menu_char_code = 6'd14; // N
                     6'd8:  menu_char_code = 6'd4;  // D
                     6'd9:  menu_char_code = 6'd21; // U
                     6'd10: menu_char_code = 6'd18; // R
@@ -165,13 +176,8 @@ module text_renderer(
                     6'd13: menu_char_code = 6'd9;  // I
                     6'd14: menu_char_code = 6'd15; // O
                     6'd15: menu_char_code = 6'd14; // N
-                    6'd16: menu_char_code = 6'd0;
-                    6'd17: menu_char_code = 6'd0;
-                    6'd18: menu_char_code = 6'd0;
-                    6'd19: menu_char_code = 6'd0;
-                    6'd20: menu_char_code = digit_to_char(green_tens);
-                    6'd21: menu_char_code = digit_to_char(green_ones);
-                    6'd22: menu_char_code = 6'd0;
+                    6'd20: menu_char_code = digit_to_char(n_tens);
+                    6'd21: menu_char_code = digit_to_char(n_ones);
                     6'd23: menu_char_code = 6'd19; // S
                     6'd24: menu_char_code = 6'd5;  // E
                     6'd25: menu_char_code = 6'd3;  // C
@@ -179,8 +185,74 @@ module text_renderer(
                 endcase
             end
 
-            // Line 2: "Yellow duration"
+            // Line 2: "S duration"
             4'd2: begin
+                case (menu_char_pos)
+                    6'd0:  menu_char_code = (menu_sel == MENU_S_DUR) ? 6'd37 : 6'd0;
+                    6'd2:  menu_char_code = 6'd19; // S
+                    6'd8:  menu_char_code = 6'd4;  // D
+                    6'd9:  menu_char_code = 6'd21; // U
+                    6'd10: menu_char_code = 6'd18; // R
+                    6'd11: menu_char_code = 6'd1;  // A
+                    6'd12: menu_char_code = 6'd20; // T
+                    6'd13: menu_char_code = 6'd9;  // I
+                    6'd14: menu_char_code = 6'd15; // O
+                    6'd15: menu_char_code = 6'd14; // N
+                    6'd20: menu_char_code = digit_to_char(s_tens);
+                    6'd21: menu_char_code = digit_to_char(s_ones);
+                    6'd23: menu_char_code = 6'd19; // S
+                    6'd24: menu_char_code = 6'd5;  // E
+                    6'd25: menu_char_code = 6'd3;  // C
+                    default: menu_char_code = 6'd0;
+                endcase
+            end
+
+            // Line 3: "W duration"
+            4'd3: begin
+                case (menu_char_pos)
+                    6'd0:  menu_char_code = (menu_sel == MENU_W_DUR) ? 6'd37 : 6'd0;
+                    6'd2:  menu_char_code = 6'd23; // W
+                    6'd8:  menu_char_code = 6'd4;  // D
+                    6'd9:  menu_char_code = 6'd21; // U
+                    6'd10: menu_char_code = 6'd18; // R
+                    6'd11: menu_char_code = 6'd1;  // A
+                    6'd12: menu_char_code = 6'd20; // T
+                    6'd13: menu_char_code = 6'd9;  // I
+                    6'd14: menu_char_code = 6'd15; // O
+                    6'd15: menu_char_code = 6'd14; // N
+                    6'd20: menu_char_code = digit_to_char(w_tens);
+                    6'd21: menu_char_code = digit_to_char(w_ones);
+                    6'd23: menu_char_code = 6'd19; // S
+                    6'd24: menu_char_code = 6'd5;  // E
+                    6'd25: menu_char_code = 6'd3;  // C
+                    default: menu_char_code = 6'd0;
+                endcase
+            end
+
+            // Line 4: "E duration"
+            4'd4: begin
+                case (menu_char_pos)
+                    6'd0:  menu_char_code = (menu_sel == MENU_E_DUR) ? 6'd37 : 6'd0;
+                    6'd2:  menu_char_code = 6'd5;  // E
+                    6'd8:  menu_char_code = 6'd4;  // D
+                    6'd9:  menu_char_code = 6'd21; // U
+                    6'd10: menu_char_code = 6'd18; // R
+                    6'd11: menu_char_code = 6'd1;  // A
+                    6'd12: menu_char_code = 6'd20; // T
+                    6'd13: menu_char_code = 6'd9;  // I
+                    6'd14: menu_char_code = 6'd15; // O
+                    6'd15: menu_char_code = 6'd14; // N
+                    6'd20: menu_char_code = digit_to_char(e_tens);
+                    6'd21: menu_char_code = digit_to_char(e_ones);
+                    6'd23: menu_char_code = 6'd19; // S
+                    6'd24: menu_char_code = 6'd5;  // E
+                    6'd25: menu_char_code = 6'd3;  // C
+                    default: menu_char_code = 6'd0;
+                endcase
+            end
+
+            // Line 5: "Yellow duration"
+            4'd5: begin
                 case (menu_char_pos)
                     6'd0:  menu_char_code = (menu_sel == MENU_YELLOW_DUR) ? 6'd37 : 6'd0;
                     6'd1:  menu_char_code = 6'd0;
@@ -212,8 +284,8 @@ module text_renderer(
                 endcase
             end
 
-            // Line 3: "Red Holding"
-            4'd3: begin
+            // Line 6: "Red Holding"
+            4'd6: begin
                 case (menu_char_pos)
                     6'd0:  menu_char_code = (menu_sel == MENU_RED_HOLD) ? 6'd37 : 6'd0;
                     6'd1:  menu_char_code = 6'd0;
@@ -245,8 +317,8 @@ module text_renderer(
                 endcase
             end
 
-            // Line 4: Blank
-            4'd4: menu_char_code = 6'd0;
+            // Line 7: Blank
+            4'd7: menu_char_code = 6'd0;
 
             // (Removed Simulation / Play / Pause / Stop menu lines)
 

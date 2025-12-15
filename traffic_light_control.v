@@ -17,7 +17,10 @@ module traffic_light_control (
 
     // Control inputs
     input  wire [15:0] switches,
-    input  wire [7:0]  green_duration,   // Configurable timing (seconds)
+    input  wire [7:0]  n_duration,   // Configurable timing (seconds)
+    input  wire [7:0]  s_duration,
+    input  wire [7:0]  w_duration,
+    input  wire [7:0]  e_duration,
     input  wire [7:0]  yellow_duration,
     input  wire [7:0]  red_holding,
 
@@ -45,7 +48,8 @@ module traffic_light_control (
     output wire [7:0]  countdown_sec,    // Time remaining in current state
     output wire [1:0]  active_direction, // 0=N, 1=E, 2=S, 3=W
     output wire        manual_yellow_transition,  // Status flag for transition
-    output wire        show_countdown    // 1=show countdown, 0=hide in pure manual
+    output wire        show_countdown,    // 1=show countdown, 0=hide in pure manual
+    output reg [7:0]   yellow_light_count // Count of yellow light occurrences
 );
 
     //=========================================================================
@@ -99,6 +103,16 @@ module traffic_light_control (
     reg [3:0]  green_snapshot;       // Snapshot of which lights were green at manual→auto
     reg [1:0]  last_auto_direction;  // Last direction in auto mode (for smooth transition)
 
+    // Manual mode transition control
+    reg prev_sw_north, prev_sw_east, prev_sw_south, prev_sw_west;
+    reg [1:0]  manual_state;
+    localparam MANUAL_IDLE = 2'd0;
+    localparam MANUAL_YELLOW = 2'd1;
+    reg [31:0] manual_timer;
+    reg [3:0]  manual_yellow_lights;
+
+    reg [7:0] yellow_light_counter; // Counter for yellow light occurrences
+
     // Internal light control registers
     reg [3:0]  red_lights;          // {W, S, E, N}
     reg [3:0]  yellow_lights;
@@ -107,15 +121,24 @@ module traffic_light_control (
     //=========================================================================
     // TIMING CALCULATIONS
     //=========================================================================
-    wire [31:0] cycles_green  = green_duration  * CLK_FREQ;
+    wire [31:0] cycles_n_green = n_duration * CLK_FREQ;
+    wire [31:0] cycles_s_green = s_duration * CLK_FREQ;
+    wire [31:0] cycles_w_green = w_duration * CLK_FREQ;
+    wire [31:0] cycles_e_green = e_duration * CLK_FREQ;
     wire [31:0] cycles_yellow = yellow_duration * CLK_FREQ;
     wire [31:0] cycles_red    = red_holding     * CLK_FREQ;
 
     // State duration lookup
     always @(*) begin
         case (current_state)
-            ST_N_GREEN, ST_E_GREEN, ST_S_GREEN, ST_W_GREEN:
-                cycle_duration = cycles_green;
+            ST_N_GREEN:
+                cycle_duration = cycles_n_green;
+            ST_E_GREEN:
+                cycle_duration = cycles_e_green;
+            ST_S_GREEN:
+                cycle_duration = cycles_s_green;
+            ST_W_GREEN:
+                cycle_duration = cycles_w_green;
             ST_N_YELLOW, ST_E_YELLOW, ST_S_YELLOW, ST_W_YELLOW:
                 cycle_duration = cycles_yellow;
             ST_N_RED, ST_E_RED, ST_S_RED, ST_W_RED:
@@ -123,7 +146,7 @@ module traffic_light_control (
             ST_TRANSITION:
                 cycle_duration = cycles_yellow;
             default:
-                cycle_duration = cycles_green;
+                cycle_duration = cycles_n_green;
         endcase
     end
 
@@ -132,6 +155,12 @@ module traffic_light_control (
     //=========================================================================
     wire auto_to_manual_request = mode_manual && !prev_mode_manual;
     wire manual_to_auto_request = !mode_manual && prev_mode_manual;
+
+    // Falling edge detection for manual switches
+    wire north_off = prev_sw_north && !sw_north;
+    wire east_off  = prev_sw_east  && !sw_east;
+    wire south_off = prev_sw_south && !sw_south;
+    wire west_off  = prev_sw_west  && !sw_west;
 
     //=========================================================================
     // STATE MACHINE - Sequential Logic
@@ -145,14 +174,29 @@ module traffic_light_control (
             manual_mode_pending <= 0;
             green_snapshot      <= 4'b0000;
             last_auto_direction <= DIR_NORTH;
+            manual_state        <= MANUAL_IDLE;
+            manual_timer        <= 0;
+            manual_yellow_lights<= 4'b0;
+            prev_sw_north       <= sw_north;
+            prev_sw_east        <= sw_east;
+            prev_sw_south       <= sw_south;
+            prev_sw_west        <= sw_west;
+            yellow_light_counter<= 8'd0; // Initialize counter
         end else begin
             // Track mode changes
             prev_mode_manual <= mode_manual;
+
+            // Previous switch states for manual mode
+            prev_sw_north <= sw_north;
+            prev_sw_east  <= sw_east;
+            prev_sw_south <= sw_south;
+            prev_sw_west  <= sw_west;
 
             if (!mode_manual) begin
                 //=============================================================
                 // AUTOMATIC MODE
                 //=============================================================
+                manual_state <= MANUAL_IDLE; // Reset manual FSM when in auto mode
 
                 // Track current direction in auto mode
                 case (current_state)
@@ -172,11 +216,16 @@ module traffic_light_control (
                     green_snapshot <= green_lights;
                     current_state  <= ST_TRANSITION;
                     cycle_counter  <= 0;
+                    yellow_light_counter <= yellow_light_counter + 1; // Increment yellow light count
                 end
                 // Normal state progression
                 else if (cycle_counter >= cycle_duration - 1) begin
                     current_state <= next_state;
                     cycle_counter <= 0;
+                    if (next_state == ST_N_YELLOW || next_state == ST_E_YELLOW ||
+                        next_state == ST_S_YELLOW || next_state == ST_W_YELLOW) begin
+                        yellow_light_counter <= yellow_light_counter + 1; // Increment yellow light count
+                    end
                 end else begin
                     cycle_counter <= cycle_counter + 1;
                 end
@@ -185,6 +234,55 @@ module traffic_light_control (
                 //=============================================================
                 // MANUAL MODE (or transitioning from AUTO→MANUAL)
                 //=============================================================
+
+                // Manual mode state machine
+                case(manual_state)
+                    MANUAL_IDLE: begin
+                        if (!mode_parallel) begin // Sequential manual mode
+                            if (north_off) begin
+                                manual_state <= MANUAL_YELLOW;
+                                manual_yellow_lights <= 4'b0001;
+                                manual_timer <= 0;
+                                yellow_light_counter <= yellow_light_counter + 1; // Increment yellow light count
+                            end else if (east_off) begin
+                                manual_state <= MANUAL_YELLOW;
+                                manual_yellow_lights <= 4'b0010;
+                                manual_timer <= 0;
+                                yellow_light_counter <= yellow_light_counter + 1; // Increment yellow light count
+                            end else if (south_off) begin
+                                manual_state <= MANUAL_YELLOW;
+                                manual_yellow_lights <= 4'b0100;
+                                manual_timer <= 0;
+                                yellow_light_counter <= yellow_light_counter + 1; // Increment yellow light count
+                            end else if (west_off) begin
+                                manual_state <= MANUAL_YELLOW;
+                                manual_yellow_lights <= 4'b1000;
+                                manual_timer <= 0;
+                                yellow_light_counter <= yellow_light_counter + 1; // Increment yellow light count
+                            end
+                        end else begin // Parallel manual mode
+                            if (north_off) begin // N+S were on
+                                manual_state <= MANUAL_YELLOW;
+                                manual_yellow_lights <= 4'b0101; // N and S yellow
+                                manual_timer <= 0;
+                                yellow_light_counter <= yellow_light_counter + 1; // Increment yellow light count
+                            end else if (east_off) begin // E+W were on
+                                manual_state <= MANUAL_YELLOW;
+                                manual_yellow_lights <= 4'b1010; // E and W yellow
+                                manual_timer <= 0;
+                                yellow_light_counter <= yellow_light_counter + 1; // Increment yellow light count
+                            end
+                        end
+                    end
+                    MANUAL_YELLOW: begin
+                        if(manual_timer >= cycles_yellow - 1) begin
+                            manual_state <= MANUAL_IDLE;
+                            manual_timer <= 0;
+                        end else begin
+                            manual_timer <= manual_timer + 1;
+                        end
+                    end
+                endcase
 
                 if (manual_mode_pending) begin
                     // Finishing current AUTO cycle before giving manual control
@@ -374,47 +472,53 @@ module traffic_light_control (
             //=================================================================
             // MANUAL MODE
             //=================================================================
-            // Default: all red (safety first)
-            red_lights    = 4'b1111;
-            yellow_lights = 4'b0000;
-            green_lights  = 4'b0000;
-
-            if (!mode_parallel) begin
-                //=============================================================
-                // Sequential: One direction at a time
-                //=============================================================
-                if (sw_north) begin
-                    red_lights[0]   = 0;
-                    green_lights[0] = 1;
-                end else if (sw_east) begin
-                    red_lights[1]   = 0;
-                    green_lights[1] = 1;
-                end else if (sw_south) begin
-                    red_lights[2]   = 0;
-                    green_lights[2] = 1;
-                end else if (sw_west) begin
-                    red_lights[3]   = 0;
-                    green_lights[3] = 1;
-                end
-
+            if (manual_state == MANUAL_YELLOW) begin
+                red_lights    = ~manual_yellow_lights;
+                yellow_lights = manual_yellow_lights;
+                green_lights  = 4'b0;
             end else begin
-                //=============================================================
-                // Parallel: N+S or E+W pairs
-                //=============================================================
-                if (sw_north && !sw_east) begin
-                    // North + South green
-                    red_lights[0]   = 0;
-                    green_lights[0] = 1;
-                    red_lights[2]   = 0;
-                    green_lights[2] = 1;
-                end else if (sw_east && !sw_north) begin
-                    // East + West green
-                    red_lights[1]   = 0;
-                    green_lights[1] = 1;
-                    red_lights[3]   = 0;
-                    green_lights[3] = 1;
+                // Default: all red (safety first)
+                red_lights    = 4'b1111;
+                yellow_lights = 4'b0000;
+                green_lights  = 4'b0000;
+
+                if (!mode_parallel) begin
+                    //=============================================================
+                    // Sequential: One direction at a time
+                    //=============================================================
+                    if (sw_north) begin
+                        red_lights[0]   = 0;
+                        green_lights[0] = 1;
+                    end else if (sw_east) begin
+                        red_lights[1]   = 0;
+                        green_lights[1] = 1;
+                    end else if (sw_south) begin
+                        red_lights[2]   = 0;
+                        green_lights[2] = 1;
+                    end else if (sw_west) begin
+                        red_lights[3]   = 0;
+                        green_lights[3] = 1;
+                    end
+
+                end else begin
+                    //=============================================================
+                    // Parallel: N+S or E+W pairs
+                    //=============================================================
+                    if (sw_north && !sw_east) begin
+                        // North + South green
+                        red_lights[0]   = 0;
+                        green_lights[0] = 1;
+                        red_lights[2]   = 0;
+                        green_lights[2] = 1;
+                    end else if (sw_east && !sw_north) begin
+                        // East + West green
+                        red_lights[1]   = 0;
+                        green_lights[1] = 1;
+                        red_lights[3]   = 0;
+                        green_lights[3] = 1;
+                    end
+                    // If both or neither: stay all red (safety)
                 end
-                // If both or neither: stay all red (safety)
             end
         end
     end

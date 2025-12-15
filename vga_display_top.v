@@ -56,7 +56,8 @@ module vga_display_top(
     // MENU CONTROLLER
     // ========================================================================
     wire [3:0] menu_sel;
-    wire [7:0] green_duration, yellow_duration, red_holding;
+    wire [7:0] n_duration, s_duration, w_duration, e_duration;
+    wire [7:0] yellow_duration, red_holding;
     wire [1:0] sim_state;
 
     menu_controller menu_ctrl(
@@ -68,7 +69,10 @@ module vga_display_top(
         .btn_right_pressed(btn_right_pressed),
         .btn_center_pressed(btn_center_pressed),
         .menu_sel(menu_sel),
-        .green_duration(green_duration),
+        .n_duration(n_duration),
+        .s_duration(s_duration),
+        .w_duration(w_duration),
+        .e_duration(e_duration),
         .yellow_duration(yellow_duration),
         .red_holding(red_holding),
         .sim_state(sim_state)
@@ -92,12 +96,16 @@ module vga_display_top(
     wire mode_auto = ~switches[0];  // 0=auto, 1=manual
     wire manual_yellow_transition;
     wire show_countdown;
+    wire [7:0] yellow_light_count; // New output for yellow light count
 
     traffic_light_control tl_ctrl(
         .clk(clk),
         .rst(reset),
         .switches(switches_internal),
-        .green_duration(green_duration),
+        .n_duration(n_duration),
+        .s_duration(s_duration),
+        .w_duration(w_duration),
+        .e_duration(e_duration),
         .yellow_duration(yellow_duration),
         .red_holding(red_holding),
         .N_red(N_red),
@@ -115,7 +123,8 @@ module vga_display_top(
         .countdown_sec(countdown_sec),
         .active_direction(active_direction),
         .manual_yellow_transition(manual_yellow_transition),
-        .show_countdown(show_countdown)
+        .show_countdown(show_countdown),
+        .yellow_light_count(yellow_light_count) // Connect new output
     );
 
     // ========================================================================
@@ -142,12 +151,16 @@ module vga_display_top(
         .x(x),
         .y(y),
         .menu_sel(menu_sel),
-        .green_duration(green_duration),
+        .n_duration(n_duration),
+        .s_duration(s_duration),
+        .w_duration(w_duration),
+        .e_duration(e_duration),
         .yellow_duration(yellow_duration),
         .red_holding(red_holding),
         .countdown_sec(countdown_sec),
         .active_direction(active_direction),
         .show_countdown(show_countdown),
+        .yellow_light_count(yellow_light_count), // Pass new input
         .font_pixels(font_pixels),
         .text_pixel(text_pixel),
         .char_code(char_code),
