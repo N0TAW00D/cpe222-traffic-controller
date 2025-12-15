@@ -108,6 +108,7 @@ module traffic_light_control (
     reg [1:0]  manual_state;
     localparam MANUAL_IDLE = 2'd0;
     localparam MANUAL_YELLOW = 2'd1;
+    localparam MANUAL_RED = 2'd2;
     reg [31:0] manual_timer;
     reg [3:0]  manual_yellow_lights;
 
@@ -276,6 +277,14 @@ module traffic_light_control (
                     end
                     MANUAL_YELLOW: begin
                         if(manual_timer >= cycles_yellow - 1) begin
+                            manual_state <= MANUAL_RED;
+                            manual_timer <= 0;
+                        end else begin
+                            manual_timer <= manual_timer + 1;
+                        end
+                    end
+                    MANUAL_RED: begin
+                        if(manual_timer >= cycles_red - 1) begin
                             manual_state <= MANUAL_IDLE;
                             manual_timer <= 0;
                         end else begin
@@ -476,6 +485,10 @@ module traffic_light_control (
                 red_lights    = ~manual_yellow_lights;
                 yellow_lights = manual_yellow_lights;
                 green_lights  = 4'b0;
+            end else if (manual_state == MANUAL_RED) begin
+                red_lights    = 4'b1111;
+                yellow_lights = 4'b0000;
+                green_lights  = 4'b0000;
             end else begin
                 // Default: all red (safety first)
                 red_lights    = 4'b1111;
