@@ -584,7 +584,7 @@ module traffic_light_control (
     //=========================================================================
     wire [31:0] cycles_remaining = (cycle_duration > cycle_counter) ?
                                    (cycle_duration - cycle_counter) : 32'd0;
-    wire [31:0] seconds_remaining = cycles_remaining / CLK_FREQ;
+    wire [31:0] seconds_remaining = (cycles_remaining + CLK_FREQ - 1) / CLK_FREQ;
 
     assign countdown_sec = (seconds_remaining > 255) ? 8'd255 : seconds_remaining[7:0];
 
