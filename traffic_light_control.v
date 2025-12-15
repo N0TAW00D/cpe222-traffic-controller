@@ -65,8 +65,6 @@ module traffic_light_control(
     reg [31:0] timer;
     reg [31:0] duration;
     reg prev_mode_auto;           // To detect mode transition
-    reg [1:0] transition_state;   // 0=normal, 1=yellow, 2=red
-    reg [1:0] transition_direction; // Which direction was green in manual mode
 
     // CHECK LOGIC - Switch assignments for mode and direction control
     // Switch decoding
@@ -95,8 +93,7 @@ module traffic_light_control(
             state <= STATE_N_GREEN;
             timer <= 0;
             prev_mode_auto <= 0;
-            transition_state <= 0;
-            transition_direction <= 2'b00;
+            in_yellow_transition <= 0;
         end else begin
             // Update previous mode
             prev_mode_auto <= mode_auto;
@@ -104,32 +101,17 @@ module traffic_light_control(
             if (mode_auto) begin
                 // Check if we just transitioned from manual to auto
                 if (manual_to_auto_transition) begin
-                    // Capture which direction had green in manual mode
-                    if (manual_parallel) begin
-                        transition_direction <= sw_NS ? 2'b00 : (sw_EW ? 2'b01 : 2'b00);
-                    end else begin
-                        if (sw_N) transition_direction <= 2'b00;
-                        else if (sw_E) transition_direction <= 2'b01;
-                        else if (sw_S) transition_direction <= 2'b10;
-                        else if (sw_W) transition_direction <= 2'b11;
-                        else transition_direction <= 2'b00;
-                    end
                     // Start yellow transition
-                    transition_state <= 2'd1;
+                    in_yellow_transition <= 1;
                     timer <= 0;
-                end else if (transition_state != 0) begin
-                    // We're transitioning from manual to auto
+                    // Stay in current state (will show yellow in output logic)
+                end else if (in_yellow_transition) begin
+                    // We're in yellow transition phase
                     if (timer >= duration - 1) begin
-                        if (transition_state == 2'd1) begin
-                            // Yellow complete, go to red
-                            transition_state <= 2'd2;
-                            timer <= 0;
-                        end else if (transition_state == 2'd2) begin
-                            // Red complete, enter normal FSM
-                            transition_state <= 0;
-                            state <= STATE_N_GREEN;
-                            timer <= 0;
-                        end
+                        // Yellow transition complete, enter normal FSM
+                        in_yellow_transition <= 0;
+                        state <= STATE_N_GREEN;  // Start from North
+                        timer <= 0;
                     end else begin
                         timer <= timer + 1;
                     end
@@ -146,7 +128,7 @@ module traffic_light_control(
                 // Manual mode - stay in current state, reset timer
                 state <= STATE_N_GREEN;  // Default state for manual mode
                 timer <= 0;
-                transition_state <= 0;
+                in_yellow_transition <= 0;
             end
         end
     end
@@ -161,72 +143,70 @@ module traffic_light_control(
     wire [31:0] red_cycles = red_holding * CLK_FREQ;
 
     always @(*) begin
-        // Handle transition state durations
-        if (transition_state == 2'd1) begin
-            duration = yellow_cycles;  // Yellow transition
-            next_state = STATE_N_GREEN;
-        end else if (transition_state == 2'd2) begin
-            duration = red_cycles;     // Red transition
-            next_state = STATE_N_GREEN;
+        // CHECK LOGIC - Yellow transition when switching manual to auto
+        // Handle yellow transition state
+        if (in_yellow_transition) begin
+            duration = yellow_cycles;
+            next_state = STATE_N_GREEN;  // After yellow, go to North green
         end else begin
-            // CHECK LOGIC - Normal FSM state transitions (modify sequence here)
-            // Normal FSM operation
-            case (state)
-                STATE_N_GREEN: begin
-                    duration = green_cycles;
-                    next_state = STATE_N_YELLOW;
-                end
-                STATE_N_YELLOW: begin
-                    duration = yellow_cycles;
-                    next_state = STATE_ALL_RED1;
-                end
-                STATE_ALL_RED1: begin
-                    duration = red_cycles;
-                    next_state = STATE_E_GREEN;
-                end
-                STATE_E_GREEN: begin
-                    duration = green_cycles;
-                    next_state = STATE_E_YELLOW;
-                end
-                STATE_E_YELLOW: begin
-                    duration = yellow_cycles;
-                    next_state = STATE_ALL_RED2;
-                end
-                STATE_ALL_RED2: begin
-                    duration = red_cycles;
-                    next_state = STATE_S_GREEN;
-                end
-                STATE_S_GREEN: begin
-                    duration = green_cycles;
-                    next_state = STATE_S_YELLOW;
-                end
-                STATE_S_YELLOW: begin
-                    duration = yellow_cycles;
-                    next_state = STATE_ALL_RED3;
-                end
-                STATE_ALL_RED3: begin
-                    duration = red_cycles;
-                    next_state = STATE_W_GREEN;
-                end
-                STATE_W_GREEN: begin
-                    duration = green_cycles;
-                    next_state = STATE_W_YELLOW;
-                end
-                STATE_W_YELLOW: begin
-                    duration = yellow_cycles;
-                    next_state = STATE_ALL_RED4;
-                end
-                STATE_ALL_RED4: begin
-                    duration = red_cycles;
-                    next_state = STATE_N_GREEN;
-                end
-                default: begin
-                    duration = green_cycles;
-                    next_state = STATE_N_GREEN;
-                end
-            endcase
-        end
-    end
+        // CHECK LOGIC - Normal FSM state transitions (modify sequence here)
+        // Normal FSM operation
+        case (state)
+            STATE_N_GREEN: begin
+                duration = green_cycles;
+                next_state = STATE_N_YELLOW;
+            end
+            STATE_N_YELLOW: begin
+                duration = yellow_cycles;
+                next_state = STATE_ALL_RED1;
+            end
+            STATE_ALL_RED1: begin
+                duration = red_cycles;
+                next_state = STATE_E_GREEN;
+            end
+            STATE_E_GREEN: begin
+                duration = green_cycles;
+                next_state = STATE_E_YELLOW;
+            end
+            STATE_E_YELLOW: begin
+                duration = yellow_cycles;
+                next_state = STATE_ALL_RED2;
+            end
+            STATE_ALL_RED2: begin
+                duration = red_cycles;
+                next_state = STATE_S_GREEN;
+            end
+            STATE_S_GREEN: begin
+                duration = green_cycles;
+                next_state = STATE_S_YELLOW;
+            end
+            STATE_S_YELLOW: begin
+                duration = yellow_cycles;
+                next_state = STATE_ALL_RED3;
+            end
+            STATE_ALL_RED3: begin
+                duration = red_cycles;
+                next_state = STATE_W_GREEN;
+            end
+            STATE_W_GREEN: begin
+                duration = green_cycles;
+                next_state = STATE_W_YELLOW;
+            end
+            STATE_W_YELLOW: begin
+                duration = yellow_cycles;
+                next_state = STATE_ALL_RED4;
+            end
+            STATE_ALL_RED4: begin
+                duration = red_cycles;
+                next_state = STATE_N_GREEN;
+            end
+            default: begin
+                duration = green_cycles;
+                next_state = STATE_N_GREEN;
+            end
+        endcase
+        end  // Close the else begin from line 148
+    end      // Close the always @(*) begin
 
     // =======================================================================
     // COUNTDOWN TIMER CALCULATION
@@ -245,25 +225,19 @@ module traffic_light_control(
     reg [1:0] active_dir;
     always @(*) begin
         if (mode_auto) begin
-            // Check if in transition
-            if (transition_state != 0) begin
-                // Use the transition direction
-                active_dir = transition_direction;
-            end else begin
-                // CHECK LOGIC - Map states to active directions
-                case (state)
-                    STATE_N_GREEN, STATE_N_YELLOW, STATE_ALL_RED1:
-                        active_dir = 2'b00;  // North
-                    STATE_E_GREEN, STATE_E_YELLOW, STATE_ALL_RED2:
-                        active_dir = 2'b01;  // East
-                    STATE_S_GREEN, STATE_S_YELLOW, STATE_ALL_RED3:
-                        active_dir = 2'b10;  // South
-                    STATE_W_GREEN, STATE_W_YELLOW, STATE_ALL_RED4:
-                        active_dir = 2'b11;  // West
-                    default:
-                        active_dir = 2'b00;  // Default to North
-                endcase
-            end
+            // CHECK LOGIC - Map states to active directions
+            case (state)
+                STATE_N_GREEN, STATE_N_YELLOW, STATE_ALL_RED1:
+                    active_dir = 2'b00;  // North
+                STATE_E_GREEN, STATE_E_YELLOW, STATE_ALL_RED2:
+                    active_dir = 2'b01;  // East
+                STATE_S_GREEN, STATE_S_YELLOW, STATE_ALL_RED3:
+                    active_dir = 2'b10;  // South
+                STATE_W_GREEN, STATE_W_YELLOW, STATE_ALL_RED4:
+                    active_dir = 2'b11;  // West
+                default:
+                    active_dir = 2'b00;  // Default to North
+            endcase
         end else begin
             // CHECK LOGIC - Manual mode direction selection
             // Manual mode - determine based on which light is green
@@ -296,17 +270,14 @@ module traffic_light_control(
             S_red = 1; S_yellow = 0; S_green = 0;
             W_red = 1; W_yellow = 0; W_green = 0;
 
-            // Check if in transition from manual to auto
-            if (transition_state == 2'd1) begin
-                // Yellow transition - show yellow for the direction that had green
-                case (transition_direction)
-                    2'b00: begin N_red = 0; N_yellow = 1; end  // North
-                    2'b01: begin E_red = 0; E_yellow = 1; end  // East
-                    2'b10: begin S_red = 0; S_yellow = 1; end  // South
-                    2'b11: begin W_red = 0; W_yellow = 1; end  // West
-                endcase
-            end else if (transition_state == 2'd2) begin
-                // Red transition - all lights stay red (default values)
+            // CHECK LOGIC - Yellow transition behavior
+            // Check if in yellow transition
+            if (in_yellow_transition) begin
+                // All lights show yellow during transition
+                N_red = 0; N_yellow = 1;
+                E_red = 0; E_yellow = 1;
+                S_red = 0; S_yellow = 1;
+                W_red = 0; W_yellow = 1;
             end else begin
                 // Set active lights based on current state
                 case (state)

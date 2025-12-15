@@ -90,6 +90,7 @@ module vga_display_top(
 
     // Decode mode from switches
     wire mode_auto = ~switches[0];  // 0=auto, 1=manual
+    wire manual_yellow_transition;
 
     traffic_light_control tl_ctrl(
         .clk(clk),
@@ -111,7 +112,8 @@ module vga_display_top(
         .W_yellow(W_yellow),
         .W_green(W_green),
         .countdown_sec(countdown_sec),
-        .active_direction(active_direction)
+        .active_direction(active_direction),
+        .manual_yellow_transition(manual_yellow_transition)
     );
 
     // ========================================================================

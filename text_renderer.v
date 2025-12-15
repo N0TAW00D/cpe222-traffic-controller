@@ -11,6 +11,7 @@ module text_renderer(
     input wire [7:0] countdown_sec,
     input wire [1:0] active_direction,  // 00=N, 01=E, 10=S, 11=W
     input wire mode_auto,               // 1=auto mode, 0=manual mode
+    input wire manual_yellow_active,    // 1=manual yellow transition active
     input wire [7:0] font_pixels,
     output wire text_pixel,
     output wire [5:0] char_code,
