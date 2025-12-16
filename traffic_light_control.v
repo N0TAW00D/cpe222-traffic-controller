@@ -76,8 +76,7 @@ module traffic_light_control (
         ST_S_RED      = 4'd8,
         ST_W_GREEN    = 4'd9,
         ST_W_YELLOW   = 4'd10,
-        ST_W_RED      = 4'd11,
-        ST_TRANSITION = 4'd12;  // Special state for manual→auto transition
+        ST_W_RED      = 4'd11;
 
     //=========================================================================
     // SWITCH DECODING
@@ -100,6 +99,7 @@ module traffic_light_control (
 
     // Mode transition control
     reg        manual_mode_pending;  // Manual mode requested, waiting for safe transition
+    reg        auto_mode_pending;    // Auto mode requested, waiting for safe transition (MANUAL_RED state)
     reg [3:0]  green_snapshot;       // Snapshot of which lights were green at manual→auto
     reg [1:0]  last_auto_direction;  // Last direction in auto mode (for smooth transition)
 
@@ -144,8 +144,6 @@ module traffic_light_control (
                 cycle_duration = cycles_yellow;
             ST_N_RED, ST_E_RED, ST_S_RED, ST_W_RED:
                 cycle_duration = cycles_red;
-            ST_TRANSITION:
-                cycle_duration = cycles_yellow;
             default:
                 cycle_duration = cycles_n_green;
         endcase
@@ -173,6 +171,7 @@ module traffic_light_control (
             // Initialize based on current switch state
             prev_mode_manual    <= mode_manual;
             manual_mode_pending <= 0;
+            auto_mode_pending   <= 0;
             green_snapshot      <= 4'b0000;
             last_auto_direction <= DIR_NORTH;
             manual_state        <= MANUAL_IDLE;
@@ -198,10 +197,11 @@ module traffic_light_control (
                 // AUTOMATIC MODE
                 //=============================================================
                 manual_state <= MANUAL_IDLE; // Reset manual FSM when in auto mode
+                auto_mode_pending <= 0;      // Clear auto pending flag when in auto mode
 
                 // Track current direction in auto mode
                 case (current_state)
-                    ST_N_GREEN, ST_N_YELLOW, ST_N_RED, ST_TRANSITION:
+                    ST_N_GREEN, ST_N_YELLOW, ST_N_RED:
                         last_auto_direction <= DIR_NORTH;
                     ST_E_GREEN, ST_E_YELLOW, ST_E_RED:
                         last_auto_direction <= DIR_EAST;
@@ -211,16 +211,8 @@ module traffic_light_control (
                         last_auto_direction <= DIR_WEST;
                 endcase
 
-                // Check for manual→auto transition request
-                if (manual_to_auto_request) begin
-                    // Capture which lights are currently green in manual mode
-                    green_snapshot <= green_lights;
-                    current_state  <= ST_TRANSITION;
-                    cycle_counter  <= 0;
-                    yellow_light_counter <= yellow_light_counter + 1; // Increment yellow light count
-                end
                 // Normal state progression
-                else if (cycle_counter >= cycle_duration - 1) begin
+                if (cycle_counter >= cycle_duration - 1) begin
                     current_state <= next_state;
                     cycle_counter <= 0;
                     if (next_state == ST_N_YELLOW || next_state == ST_E_YELLOW ||
@@ -285,13 +277,33 @@ module traffic_light_control (
                     end
                     MANUAL_RED: begin
                         if(manual_timer >= cycles_red - 1) begin
-                            manual_state <= MANUAL_IDLE;
+                            // Check if auto mode is pending - if so, stay in RED and allow transition
+                            if (!auto_mode_pending) begin
+                                manual_state <= MANUAL_IDLE;
+                            end
+                            // If auto_mode_pending, stay in MANUAL_RED and let mode switch happen
                             manual_timer <= 0;
                         end else begin
                             manual_timer <= manual_timer + 1;
                         end
                     end
                 endcase
+
+                // Check for manual→auto transition request
+                if (manual_to_auto_request) begin
+                    // User wants to switch to auto - set pending flag
+                    auto_mode_pending <= 1;
+                    // Continue manual mode until MANUAL_RED state completes
+
+                    // If not currently in a transition, force one by going to yellow
+                    if (manual_state == MANUAL_IDLE && (sw_north || sw_east || sw_south || sw_west)) begin
+                        // Lights are on, need to turn them off first
+                        manual_state <= MANUAL_YELLOW;
+                        manual_yellow_lights <= green_lights;  // Yellow the currently green lights
+                        manual_timer <= 0;
+                        yellow_light_counter <= yellow_light_counter + 1;
+                    end
+                end
 
                 if (manual_mode_pending) begin
                     // Finishing current AUTO cycle before giving manual control
@@ -350,9 +362,6 @@ module traffic_light_control (
             ST_W_YELLOW:   next_state = ST_W_RED;
             ST_W_RED:      next_state = ST_N_GREEN;  // Loop back to North
 
-            // Transition state
-            ST_TRANSITION: next_state = ST_N_GREEN;
-
             default:       next_state = ST_N_GREEN;
         endcase
     end
@@ -370,15 +379,8 @@ module traffic_light_control (
             yellow_lights = 4'b0000;
             green_lights  = 4'b0000;
 
-            // Transition state: selective yellow
-            // Only lights that were GREEN turn yellow, RED stays red
-            if (current_state == ST_TRANSITION) begin
-                yellow_lights = green_snapshot;     // Turn green→yellow
-                red_lights    = ~green_snapshot;    // Keep others red
-            end
-            // Normal operation: set lights based on state
-            else begin
-                case (current_state)
+            // Set lights based on state
+            case (current_state)
                     // North
                     ST_N_GREEN: begin
                         red_lights[0]   = 0;
@@ -420,8 +422,7 @@ module traffic_light_control (
                     end
 
                     // All RED states: keep defaults
-                endcase
-            end
+            endcase
 
         end else if (manual_mode_pending) begin
             //=================================================================
@@ -545,7 +546,7 @@ module traffic_light_control (
         if (!mode_manual) begin
             // Automatic mode: based on state
             case (current_state)
-                ST_N_GREEN, ST_N_YELLOW, ST_N_RED, ST_TRANSITION:
+                ST_N_GREEN, ST_N_YELLOW, ST_N_RED:
                     active_dir = DIR_NORTH;
                 ST_E_GREEN, ST_E_YELLOW, ST_E_RED:
                     active_dir = DIR_EAST;
@@ -608,10 +609,10 @@ module traffic_light_control (
     assign W_yellow = yellow_lights[3];
     assign W_green  = green_lights[3];
 
-    // Transition status indicator
-    assign manual_yellow_transition = (current_state == ST_TRANSITION);
+    // Transition status indicator - true when waiting for safe mode transition
+    assign manual_yellow_transition = (manual_mode_pending || auto_mode_pending);
 
     // Show countdown in auto mode OR during transition, hide in pure manual
-    assign show_countdown = !mode_manual || manual_mode_pending;
+    assign show_countdown = !mode_manual || manual_mode_pending || auto_mode_pending;
 
 endmodule
