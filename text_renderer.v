@@ -13,9 +13,9 @@ module text_renderer(
     input wire [7:0] red_holding,
     input wire [7:0] countdown_sec,
     input wire [1:0] active_direction,  // 00=N, 01=E, 10=S, 11=W
-    input wire show_countdown,          // 1=show countdown, 0=hide
+    input wire show_countdown,          
     input wire [7:0] font_pixels,
-    input wire [7:0] yellow_light_count, // New input for yellow light count
+    input wire [7:0] yellow_light_count, 
     output wire text_pixel,
     output wire [5:0] char_code,
     output wire [2:0] char_row
@@ -33,9 +33,9 @@ module text_renderer(
     parameter MENU_X = 300;
     parameter MENU_Y = 50;
     parameter MENU_MAX_CHARS = 30;
-    parameter MENU_NUM_LINES = 8; // Increased to accommodate new line
+    parameter MENU_NUM_LINES = 8; 
 
-    // Menu item indices
+    // Menu item 
     parameter MENU_N_DUR = 4'd1;
     parameter MENU_S_DUR = 4'd2;
     parameter MENU_W_DUR = 4'd3;
