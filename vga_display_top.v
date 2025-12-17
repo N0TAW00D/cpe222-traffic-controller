@@ -1,14 +1,14 @@
 `timescale 1ns / 1ps
 
 module vga_display_top(
-    input wire clk,              // 100MHz system clock
-    input wire reset,            // SW15 - rightmost switch
-    input wire btn_up,           // Button for menu navigation up
-    input wire btn_down,         // Button for menu navigation down
-    input wire btn_left,         // Button for decrease value
-    input wire btn_right,        // Button for increase value
-    input wire btn_center,       // Button for enter/select
-    input wire [14:0] switches,  // Switches SW0-SW14 for traffic light control
+    input wire clk,
+    input wire reset,
+    input wire btn_up,
+    input wire btn_down,
+    input wire btn_left,
+    input wire btn_right,
+    input wire btn_center,
+    input wire [14:0] switches,
     output wire hsync,
     output wire vsync,
     output wire [3:0] vga_r,
@@ -16,11 +16,8 @@ module vga_display_top(
     output wire [3:0] vga_b
 );
 
-    // VGA controller signals
     wire video_on;
     wire [9:0] x, y;
-
-    // Instantiate VGA controller
     vga_controller vga_ctrl(
         .clk(clk),
         .reset(reset),
@@ -31,9 +28,6 @@ module vga_display_top(
         .y(y)
     );
 
-    // ========================================================================
-    // BUTTON CONTROLLER
-    // ========================================================================
     wire btn_up_pressed, btn_down_pressed, btn_left_pressed;
     wire btn_right_pressed, btn_center_pressed;
 
@@ -52,9 +46,6 @@ module vga_display_top(
         .btn_center_pressed(btn_center_pressed)
     );
 
-    // ========================================================================
-    // MENU CONTROLLER
-    // ========================================================================
     wire [3:0] menu_sel;
     wire [7:0] n_duration, s_duration, w_duration, e_duration;
     wire [7:0] yellow_duration, red_holding;
@@ -78,9 +69,6 @@ module vga_display_top(
         .sim_state(sim_state)
     );
 
-    // ========================================================================
-    // TRAFFIC LIGHT CONTROL
-    // ========================================================================
     wire N_red, N_yellow, N_green;
     wire E_red, E_yellow, E_green;
     wire S_red, S_yellow, S_green;
@@ -88,15 +76,13 @@ module vga_display_top(
     wire [7:0] countdown_sec;
     wire [1:0] active_direction;
 
-    // SW15 is used for reset, so tie switches[15] to reset value
     wire [15:0] switches_internal;
     assign switches_internal = {reset, switches[14:0]};
 
-    // Decode mode from switches
-    wire mode_auto = ~switches[0];  // 0=auto, 1=manual
+    wire mode_auto = ~switches[0];
     wire manual_yellow_transition;
     wire show_countdown;
-    wire [7:0] yellow_light_count; // New output for yellow light count
+    wire [7:0] yellow_light_count;
 
     traffic_light_control tl_ctrl(
         .clk(clk),
@@ -124,12 +110,9 @@ module vga_display_top(
         .active_direction(active_direction),
         .manual_yellow_transition(manual_yellow_transition),
         .show_countdown(show_countdown),
-        .yellow_light_count(yellow_light_count) // Connect new output
+        .yellow_light_count(yellow_light_count)
     );
 
-    // ========================================================================
-    // FONT ROM
-    // ========================================================================
     wire [5:0] char_code;
     wire [2:0] char_row;
     wire [7:0] font_pixels;
@@ -141,9 +124,6 @@ module vga_display_top(
         .pixels(font_pixels)
     );
 
-    // ========================================================================
-    // TEXT RENDERER
-    // ========================================================================
     wire text_pixel;
 
     text_renderer txt_render(
@@ -160,16 +140,13 @@ module vga_display_top(
         .countdown_sec(countdown_sec),
         .active_direction(active_direction),
         .show_countdown(show_countdown),
-        .yellow_light_count(yellow_light_count), // Pass new input
+        .yellow_light_count(yellow_light_count),
         .font_pixels(font_pixels),
         .text_pixel(text_pixel),
         .char_code(char_code),
         .char_row(char_row)
     );
 
-    // ========================================================================
-    // TRAFFIC LIGHT SHAPES
-    // ========================================================================
     wire shape_active;
     wire [3:0] shape_r, shape_g, shape_b;
 
@@ -194,29 +171,22 @@ module vga_display_top(
         .shape_b(shape_b)
     );
 
-    // ========================================================================
-    // RGB OUTPUT LOGIC
-    // ========================================================================
     reg [3:0] rgb_r, rgb_g, rgb_b;
 
     always @(*) begin
         if (!video_on) begin
-            // Blanking period - output black
             rgb_r = 4'b0000;
             rgb_g = 4'b0000;
             rgb_b = 4'b0000;
         end else if (text_pixel) begin
-            // White text (title and menu)
             rgb_r = 4'b1111;
             rgb_g = 4'b1111;
             rgb_b = 4'b1111;
         end else if (shape_active) begin
-            // Traffic light shapes
             rgb_r = shape_r;
             rgb_g = shape_g;
             rgb_b = shape_b;
         end else begin
-            // Black background
             rgb_r = 4'b0000;
             rgb_g = 4'b0000;
             rgb_b = 4'b0000;

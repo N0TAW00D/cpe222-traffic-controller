@@ -18,7 +18,6 @@ module menu_controller(
     output reg [1:0] sim_state
 );
 
-    // Menu item indices
     parameter MENU_SETTING_HEADER = 4'd0;
     parameter MENU_N_DUR = 4'd1;
     parameter MENU_S_DUR = 4'd2;
@@ -32,24 +31,21 @@ module menu_controller(
     parameter MENU_PAUSE = 4'd10;
     parameter MENU_STOP = 4'd11;
 
-    // Simulation states
     parameter SIM_STOP = 2'd0;
     parameter SIM_PLAY = 2'd1;
     parameter SIM_PAUSE = 2'd2;
 
-    // Menu state management
     always @(posedge clk or posedge reset) begin
         if (reset) begin
-            menu_sel <= MENU_N_DUR;     // Start at first selectable item
-            n_duration <= 8'd15;         // Default 15 seconds
-            s_duration <= 8'd15;         // Default 15 seconds
-            w_duration <= 8'd15;         // Default 15 seconds
-            e_duration <= 8'd15;         // Default 15 seconds
-            yellow_duration <= 8'd5;         // Default 5 seconds
-            red_holding <= 8'd3;             // Default 3 seconds
-            sim_state <= SIM_STOP;           // Default stopped
+            menu_sel <= MENU_N_DUR;
+            n_duration <= 8'd15;
+            s_duration <= 8'd15;
+            w_duration <= 8'd15;
+            e_duration <= 8'd15;
+            yellow_duration <= 8'd5;
+            red_holding <= 8'd3;
+            sim_state <= SIM_STOP;
         end else begin
-            // Handle up button - move up in menu (skip headers and blank)
             if (btn_up_pressed) begin
                 case (menu_sel)
                     MENU_N_DUR:      menu_sel <= MENU_STOP;
@@ -65,7 +61,6 @@ module menu_controller(
                 endcase
             end
 
-            // Handle down button - move down in menu (skip headers and blank)
             if (btn_down_pressed) begin
                 case (menu_sel)
                     MENU_N_DUR:      menu_sel <= MENU_S_DUR;
@@ -81,7 +76,6 @@ module menu_controller(
                 endcase
             end
 
-            // Handle left button - decrease values
             if (btn_left_pressed) begin
                 case (menu_sel)
                     MENU_N_DUR:      if (n_duration > 1) n_duration <= n_duration - 1;
@@ -93,7 +87,6 @@ module menu_controller(
                 endcase
             end
 
-            // Handle right button - increase values
             if (btn_right_pressed) begin
                 case (menu_sel)
                     MENU_N_DUR:      if (n_duration < 99) n_duration <= n_duration + 1;
@@ -105,12 +98,11 @@ module menu_controller(
                 endcase
             end
 
-            // Handle center button - select action
             if (btn_center_pressed) begin
                 case (menu_sel)
-                    MENU_PLAY:  sim_state <= SIM_PLAY;   // Play
-                    MENU_PAUSE: sim_state <= SIM_PAUSE;  // Pause
-                    MENU_STOP:  sim_state <= SIM_STOP;   // Stop
+                    MENU_PLAY:  sim_state <= SIM_PLAY;
+                    MENU_PAUSE: sim_state <= SIM_PAUSE;
+                    MENU_STOP:  sim_state <= SIM_STOP;
                 endcase
             end
         end

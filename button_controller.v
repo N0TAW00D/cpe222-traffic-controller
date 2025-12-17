@@ -15,11 +15,10 @@ module button_controller(
     output wire btn_center_pressed
 );
 
-    // Button debouncing
     reg [19:0] debounce_counter;
-    reg [4:0] btn_stable;           // Stable button states
-    reg [4:0] btn_prev;             // Previous button states
-    wire [4:0] btn_pressed;         // Button press edge detection
+    reg [4:0] btn_stable;
+    reg [4:0] btn_prev;
+    wire [4:0] btn_pressed;
 
     always @(posedge clk or posedge reset) begin
         if (reset) begin
@@ -29,7 +28,6 @@ module button_controller(
         end else begin
             debounce_counter <= debounce_counter + 1;
 
-            // Debounce every ~10ms (at 100MHz: 2^20 cycles ≈ 10ms)
             if (debounce_counter == 0) begin
                 btn_stable <= {btn_center, btn_right, btn_left, btn_down, btn_up};
             end
@@ -38,10 +36,8 @@ module button_controller(
         end
     end
 
-    // Edge detection - trigger on rising edge
     assign btn_pressed = btn_stable & ~btn_prev;
 
-    // Output individual button press signals
     assign btn_up_pressed = btn_pressed[0];
     assign btn_down_pressed = btn_pressed[1];
     assign btn_left_pressed = btn_pressed[2];
